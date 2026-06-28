@@ -7,6 +7,7 @@ from app.routers import tokens, events, alerts, stats
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Inicializa la base de datos al arrancar la aplicación."""
     await init_db()
     yield
 

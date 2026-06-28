@@ -39,3 +39,8 @@ dist/
 # Sistema operativo
 .DS_Store
 Thumbs.db
+
+# Archivos de prueba generados por el injector
+src/
+secrets/
+

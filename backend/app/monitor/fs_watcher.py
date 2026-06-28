@@ -8,6 +8,8 @@ from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
 
 class HoneytokenFsHandler(FileSystemEventHandler):
+    """Handler que reporta lecturas/escrituras de archivos canario a la API."""
+
     def __init__(self, mapping: dict[str, str], api_url: str = "http://localhost:8000"):
         """
         mapping: path -> token_id
@@ -51,6 +53,8 @@ class HoneytokenFsHandler(FileSystemEventHandler):
 
 
 class FsWatcher:
+    """Monitor de filesystem cross-platform basado en watchdog."""
+
     def __init__(self, mapping: dict[str, str] | None = None, api_url: str = "http://localhost:8000"):
         self.mapping = mapping or {}
         self.api_url = api_url
