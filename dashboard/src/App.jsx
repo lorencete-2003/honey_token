@@ -1,44 +1,485 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import { Activity, AlertTriangle, FileKey, Radio, Shield } from 'lucide-react'
-
-import { Header } from './components/layout/Header'
-import { Section } from './components/layout/Section'
-import { SectionLabel } from './components/ui/SectionLabel'
-import { StatCard } from './components/ui/StatCard'
-import { Card, CardContent } from './components/ui/Card'
-import { Badge } from './components/ui/Badge'
-import { Button } from './components/ui/Button'
+import {
+  Shield,
+  Key,
+  Activity,
+  AlertTriangle,
+  Zap,
+  Clock,
+  Server,
+  FileText,
+  Bell,
+  Search,
+  Filter,
+  RefreshCw,
+  ChevronRight,
+  MoreHorizontal,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Radio,
+  Eye,
+  Hash,
+  MapPin,
+  Calendar,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+} from 'lucide-react'
 
 const API = '/api'
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 28 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } },
+/* ─── utilidades ─── */
+function cn(...classes) {
+  return classes.filter(Boolean).join(' ')
 }
 
-const stagger = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.1 } },
+function formatDate(iso) {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  return d.toLocaleString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
-function StatusBadge({ status }) {
+function timeAgo(iso) {
+  if (!iso) return '-'
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (s < 60) return 'ahora'
+  if (s < 3600) return `${Math.floor(s / 60)}m`
+  if (s < 86400) return `${Math.floor(s / 3600)}h`
+  return `${Math.floor(s / 86400)}d`
+}
+
+/* ─── componentes pequeños ─── */
+function Badge({ children, variant = 'default', className }) {
+  const styles = {
+    default: 'bg-slate-100 text-slate-700',
+    active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    triggered: 'bg-rose-50 text-rose-700 border-rose-200',
+    alert: 'bg-amber-50 text-amber-700 border-amber-200',
+    info: 'bg-blue-50 text-blue-700 border-blue-200',
+  }
   return (
-    <span
-      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-        status === 'active'
-          ? 'bg-emerald-100 text-emerald-700'
-          : status === 'triggered'
-          ? 'bg-rose-100 text-rose-700'
-          : 'bg-slate-100 text-slate-700'
-      }`}
-    >
-      {status}
+    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium', styles[variant] || styles.default, className)}>
+      {children}
     </span>
   )
 }
 
+function Card({ children, className }) {
+  return (
+    <div className={cn('rounded-xl border border-slate-200 bg-white shadow-sm', className)}>
+      {children}
+    </div>
+  )
+}
+
+function StatBox({ label, value, change, changeType, icon: Icon }) {
+  const changeColors = {
+    up: 'text-emerald-600',
+    down: 'text-rose-600',
+    neutral: 'text-slate-400',
+  }
+  const ChangeIcon = changeType === 'up' ? ArrowUpRight : changeType === 'down' ? ArrowDownRight : Minus
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-start justify-between">
+        <div className="rounded-lg bg-slate-50 p-2">
+          <Icon className="h-5 w-5 text-slate-600" />
+        </div>
+        {change !== undefined && (
+          <div className={cn('flex items-center gap-0.5 text-xs font-medium', changeColors[changeType])}>
+            <ChangeIcon className="h-3.5 w-3.5" />
+            {change}
+          </div>
+        )}
+      </div>
+      <div className="mt-3">
+        <div className="text-2xl font-bold tracking-tight text-slate-900">{value}</div>
+        <div className="mt-0.5 text-sm text-slate-500">{label}</div>
+      </div>
+    </Card>
+  )
+}
+
+/* ─── sidebar ─── */
+function Sidebar({ activeTab, onTabChange }) {
+  const items = [
+    { id: 'overview', label: 'Vista general', icon: Activity },
+    { id: 'tokens', label: 'Tokens', icon: Key },
+    { id: 'events', label: 'Eventos', icon: Zap },
+    { id: 'alerts', label: 'Alertas', icon: Bell },
+  ]
+
+  return (
+    <aside className="flex w-56 flex-col border-r border-slate-200 bg-slate-50">
+      <div className="flex items-center gap-2.5 px-5 py-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
+          <Shield className="h-4 w-4 text-white" />
+        </div>
+        <div>
+          <div className="text-sm font-semibold text-slate-900">Honeytoken</div>
+          <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Engine</div>
+        </div>
+      </div>
+
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
+        {items.map((item) => {
+          const isActive = activeTab === item.id
+          return (
+            <button
+              key={item.id}
+              onClick={() => onTabChange(item.id)}
+              className={cn(
+                'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200'
+                  : 'text-slate-600 hover:bg-white hover:text-slate-900'
+              )}
+            >
+              <item.icon className={cn('h-4 w-4', isActive ? 'text-blue-600' : 'text-slate-400')} />
+              {item.label}
+            </button>
+          )
+        })}
+      </nav>
+
+      <div className="border-t border-slate-200 p-4">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+            <span className="text-xs font-bold text-blue-700">LR</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-slate-900 truncate">Admin</div>
+            <div className="text-xs text-slate-400 truncate">lorencete-2003</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+/* ─── vistas ─── */
+function OverviewView({ stats, tokens, events, alerts }) {
+  const recentTokens = tokens.slice(0, 5)
+  const recentEvents = events.slice(0, 6)
+  const recentAlerts = alerts.slice(0, 4)
+
+  return (
+    <div className="space-y-6">
+      {/* Stats row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatBox label="Tokens totales" value={stats?.total_tokens ?? 0} icon={Key} />
+        <StatBox label="Activos" value={stats?.active_tokens ?? 0} change="12%" changeType="up" icon={CheckCircle2} />
+        <StatBox label="Triggered" value={stats?.triggered_tokens ?? 0} change="2" changeType="down" icon={AlertCircle} />
+        <StatBox label="Alertas abiertas" value={stats?.open_alerts ?? 0} icon={Bell} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Tokens recientes */}
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+            <h3 className="text-sm font-semibold text-slate-900">Tokens recientes</h3>
+            <button className="text-xs font-medium text-blue-600 hover:text-blue-700">Ver todos</button>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {recentTokens.length === 0 && (
+              <div className="px-5 py-8 text-center text-sm text-slate-400">No hay tokens creados</div>
+            )}
+            {recentTokens.map((t) => (
+              <div key={t.id} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50">
+                <div className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-lg',
+                  t.status === 'active' ? 'bg-emerald-50' : 'bg-rose-50'
+                )}>
+                  <Key className={cn('h-4 w-4', t.status === 'active' ? 'text-emerald-600' : 'text-rose-600')} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-900 truncate">{t.name || t.token_type}</span>
+                    <Badge variant={t.status === 'active' ? 'active' : 'triggered'}>
+                      {t.status === 'active' ? 'Activo' : 'Triggered'}
+                    </Badge>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-3 text-xs text-slate-400">
+                    <span className="flex items-center gap-1"><Hash className="h-3 w-3" />{t.fingerprint?.slice(0, 8)}</span>
+                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{t.location || '—'}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-slate-400">{timeAgo(t.created_at)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Alertas rápidas */}
+        <Card>
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+            <h3 className="text-sm font-semibold text-slate-900">Alertas</h3>
+            <Badge variant="alert">{recentAlerts.length}</Badge>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {recentAlerts.length === 0 && (
+              <div className="px-5 py-8 text-center text-sm text-slate-400">Sin alertas</div>
+            )}
+            {recentAlerts.map((a) => (
+              <div key={a.id} className="px-5 py-3 hover:bg-slate-50">
+                <div className="flex items-center justify-between">
+                  <Badge variant={a.score > 80 ? 'alert' : 'info'}>{a.score > 80 ? 'Crítica' : 'Media'}</Badge>
+                  <span className="text-xs text-slate-400">{timeAgo(a.sent_at)}</span>
+                </div>
+                <p className="mt-1.5 text-sm text-slate-700 line-clamp-2">{a.message}</p>
+                <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-400">
+                  <code className="rounded bg-slate-100 px-1.5 py-0.5">{a.token_id?.slice(0, 8)}</code>
+                  <span>score {a.score}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      {/* Actividad reciente */}
+      <Card>
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+          <h3 className="text-sm font-semibold text-slate-900">Actividad reciente</h3>
+          <button className="text-xs font-medium text-blue-600 hover:text-blue-700">Ver todo</button>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {recentEvents.length === 0 && (
+            <div className="px-5 py-8 text-center text-sm text-slate-400">Sin eventos registrados</div>
+          )}
+          {recentEvents.map((e) => (
+            <div key={e.id} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+                <Zap className="h-4 w-4 text-blue-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-900">{e.event_type}</span>
+                  <Badge>{e.token_id?.slice(0, 8)}</Badge>
+                </div>
+                <div className="mt-0.5 text-xs text-slate-400">
+                  {e.source_ip || '127.0.0.1'} • {JSON.stringify(e.details).slice(0, 50)}
+                </div>
+              </div>
+              <div className="text-xs text-slate-400 whitespace-nowrap">{timeAgo(e.timestamp)}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+function TokensView({ tokens }) {
+  const [filter, setFilter] = useState('all')
+  const filtered = filter === 'all' ? tokens : tokens.filter((t) => t.status === filter)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Tokens</h2>
+          <p className="text-sm text-slate-500">Gestiona tus honeytokens y sensores</p>
+        </div>
+        <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          <Key className="h-4 w-4" />
+          Nuevo token
+        </button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+          {[
+            { id: 'all', label: 'Todos' },
+            { id: 'active', label: 'Activos' },
+            { id: 'triggered', label: 'Triggered' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFilter(tab.id)}
+              className={cn(
+                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                filter === tab.id ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-700'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Card>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wider text-slate-400">
+                <th className="px-5 py-3">Token</th>
+                <th className="px-5 py-3">Tipo</th>
+                <th className="px-5 py-3">Estado</th>
+                <th className="px-5 py-3">Ubicación</th>
+                <th className="px-5 py-3">Contexto</th>
+                <th className="px-5 py-3">Fingerprint</th>
+                <th className="px-5 py-3">Creado</th>
+                <th className="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-5 py-8 text-center text-slate-400">No hay tokens</td>
+                </tr>
+              )}
+              {filtered.map((t) => (
+                <tr key={t.id} className="hover:bg-slate-50">
+                  <td className="px-5 py-3">
+                    <div className="font-medium text-slate-900">{t.name || t.token_type}</div>
+                    <code className="text-xs text-slate-400">{t.id?.slice(0, 8)}</code>
+                  </td>
+                  <td className="px-5 py-3">
+                    <Badge>{t.token_type}</Badge>
+                  </td>
+                  <td className="px-5 py-3">
+                    <Badge variant={t.status === 'active' ? 'active' : 'triggered'}>
+                      {t.status === 'active' ? 'Activo' : 'Triggered'}
+                    </Badge>
+                  </td>
+                  <td className="px-5 py-3 text-slate-500">{t.location || '—'}</td>
+                  <td className="px-5 py-3 text-slate-500">{t.context || '—'}</td>
+                  <td className="px-5 py-3">
+                    <code className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{t.fingerprint?.slice(0, 12)}</code>
+                  </td>
+                  <td className="px-5 py-3 text-slate-400">{timeAgo(t.created_at)}</td>
+                  <td className="px-5 py-3">
+                    <button className="rounded p-1 hover:bg-slate-100">
+                      <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+function EventsView({ events }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-slate-900">Eventos</h2>
+        <p className="text-sm text-slate-500">Registro de accesos y detecciones</p>
+      </div>
+
+      <Card>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wider text-slate-400">
+                <th className="px-5 py-3">Hora</th>
+                <th className="px-5 py-3">Token</th>
+                <th className="px-5 py-3">Tipo</th>
+                <th className="px-5 py-3">IP Origen</th>
+                <th className="px-5 py-3">Proceso</th>
+                <th className="px-5 py-3">Detalles</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {events.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-5 py-8 text-center text-slate-400">Sin eventos</td>
+                </tr>
+              )}
+              {events.map((e) => (
+                <tr key={e.id} className="hover:bg-slate-50">
+                  <td className="px-5 py-3 whitespace-nowrap">
+                    <div className="text-slate-900">{formatDate(e.timestamp)}</div>
+                    <div className="text-xs text-slate-400">{timeAgo(e.timestamp)}</div>
+                  </td>
+                  <td className="px-5 py-3">
+                    <code className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{e.token_id?.slice(0, 8)}</code>
+                  </td>
+                  <td className="px-5 py-3">
+                    <Badge>{e.event_type}</Badge>
+                  </td>
+                  <td className="px-5 py-3 text-slate-600">{e.source_ip || '—'}</td>
+                  <td className="px-5 py-3">
+                    <code className="text-xs text-slate-500">{e.process_info?.pid || '—'}</code>
+                  </td>
+                  <td className="px-5 py-3 text-slate-500 max-w-xs truncate">
+                    {JSON.stringify(e.details).slice(0, 60)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+function AlertsView({ alerts }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-slate-900">Alertas</h2>
+        <p className="text-sm text-slate-500">Notificaciones de seguridad</p>
+      </div>
+
+      <div className="grid gap-4">
+        {alerts.length === 0 && (
+          <Card className="p-8 text-center text-slate-400">No hay alertas abiertas</Card>
+        )}
+        {alerts.map((a) => (
+          <Card key={a.id} className={cn('p-5', a.score > 80 ? 'border-l-4 border-l-amber-400' : '')}>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant={a.score > 80 ? 'alert' : 'info'}>
+                    {a.score > 80 ? 'Crítica' : 'Media'}
+                  </Badge>
+                  <span className="text-xs text-slate-400">score {a.score}</span>
+                </div>
+                <p className="mt-2 text-sm text-slate-700">{a.message}</p>
+                <div className="mt-3 flex items-center gap-3 text-xs text-slate-400">
+                  <span className="flex items-center gap-1"><Hash className="h-3 w-3" />{a.token_id?.slice(0, 8)}</span>
+                  <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(a.sent_at)}</span>
+                </div>
+                <div className="mt-2 flex gap-1.5">
+                  {a.channels?.map((ch) => (
+                    <span key={ch} className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                      {ch}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                  Revisar
+                </button>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ─── app principal ─── */
 export default function App() {
+  const [activeTab, setActiveTab] = useState('overview')
   const [stats, setStats] = useState(null)
   const [tokens, setTokens] = useState([])
   const [events, setEvents] = useState([])
@@ -56,7 +497,7 @@ export default function App() {
       const [s, t, e, a] = await Promise.all([
         fetch(`${API}/stats/`).then((r) => r.json()),
         fetch(`${API}/tokens/`).then((r) => r.json()),
-        fetch(`${API}/events/?limit=20`).then((r) => r.json()),
+        fetch(`${API}/events/?limit=50`).then((r) => r.json()),
         fetch(`${API}/alerts/?limit=20`).then((r) => r.json()),
       ])
       setStats(s)
@@ -65,337 +506,50 @@ export default function App() {
       setAlerts(a)
       setError(null)
     } catch (err) {
-      setError('No se pudo conectar con la API. ¿Está corriendo en :8000?')
+      setError('No se pudo conectar con la API. Asegúrate de que el backend está corriendo en :8000')
     }
   }
 
-  const statCards = stats
-    ? [
-        { label: 'Tokens totales', value: stats.total_tokens, icon: FileKey },
-        { label: 'Activos', value: stats.active_tokens, icon: Activity },
-        { label: 'Triggered', value: stats.triggered_tokens, icon: Radio },
-        { label: 'Alertas abiertas', value: stats.open_alerts, icon: AlertTriangle },
-      ]
-    : []
+  const views = {
+    overview: <OverviewView stats={stats} tokens={tokens} events={events} alerts={alerts} />,
+    tokens: <TokensView tokens={tokens} />,
+    events: <EventsView events={events} />,
+    alerts: <AlertsView alerts={alerts} />,
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <div className="flex h-screen bg-slate-100 text-slate-900">
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Hero */}
-      <Section className="pt-24 lg:pt-32">
-        <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
-          <motion.div initial="hidden" animate="visible" variants={stagger}>
-            <motion.div variants={fadeInUp}>
-              <SectionLabel pulse>Panel de control</SectionLabel>
-            </motion.div>
-            <motion.h1
-              variants={fadeInUp}
-              className="font-display text-[2.75rem] leading-[1.05] tracking-tight text-foreground sm:text-5xl lg:text-[5.25rem]"
-            >
-              Detecta intrusiones con{' '}
-              <span className="gradient-text">honeytokens</span>
-            </motion.h1>
-            <motion.p
-              variants={fadeInUp}
-              className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground"
-            >
-              Genera credenciales y archivos falsos, inyéctalos en tu infraestructura y recibe
-              alertas cuando un atacante los toque.
-            </motion.p>
-            <motion.div variants={fadeInUp} className="mt-8 flex flex-wrap gap-4">
-              <Button>Explorar tokens</Button>
-              <Button variant="secondary">Ver documentación</Button>
-            </motion.div>
-          </motion.div>
-
-          {/* Hero graphic */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-            className="relative hidden lg:block"
-          >
-            <div className="relative mx-auto aspect-square max-w-md">
-              <div className="absolute inset-0 rounded-full border-2 border-dashed border-accent/20 animate-spin-slow" />
-              <div className="absolute inset-8 rounded-full border border-border bg-card shadow-xl" />
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-                className="absolute left-1/2 top-1/2 z-10 flex h-28 w-28 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-2xl gradient-bg shadow-accent-lg"
-              >
-                <Shield className="h-12 w-12 text-white" />
-              </motion.div>
-              <motion.div
-                animate={{ y: [0, 10, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-                className="absolute -right-4 top-12 rounded-xl bg-card p-4 shadow-lg border border-border"
-              >
-                <Badge variant="alert">Alerta crítica</Badge>
-                <p className="mt-2 text-sm font-mono text-muted-foreground">score: 95%</p>
-              </motion.div>
-              <motion.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-                className="absolute -left-4 bottom-12 rounded-xl bg-card p-4 shadow-lg border border-border"
-              >
-                <Badge variant="live">Token activo</Badge>
-                <p className="mt-2 text-sm font-mono text-muted-foreground">aws-staging-001</p>
-              </motion.div>
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top bar */}
+        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
+          <div className="flex items-center gap-4">
+            <h1 className="text-sm font-semibold text-slate-700 capitalize">
+              {activeTab === 'overview' ? 'Vista general' : activeTab}
+            </h1>
+            {error && (
+              <span className="flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-600">
+                <AlertCircle className="h-3 w-3" />
+                API desconectada
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={fetchData} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" title="Refrescar">
+              <RefreshCw className="h-4 w-4 text-slate-500" />
+            </button>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+              <span className="text-xs font-bold text-blue-700">LR</span>
             </div>
-          </motion.div>
+          </div>
+        </header>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto p-6">
+          {views[activeTab]}
         </div>
-      </Section>
-
-      {/* Stats */}
-      <Section className="py-16">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
-          variants={stagger}
-          className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {statCards.map((card, i) => (
-            <StatCard key={card.label} label={card.label} value={card.value} index={i} />
-          ))}
-        </motion.div>
-
-        {error && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700"
-          >
-            {error}
-          </motion.div>
-        )}
-      </Section>
-
-      {/* Tokens */}
-      <Section inverted>
-        <div className="relative">
-          <div className="absolute -left-32 top-0 h-64 w-64 rounded-full bg-accent/5 blur-[120px]" />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.15, margin: '-60px' }}
-            variants={stagger}
-          >
-            <motion.div variants={fadeInUp}>
-              <SectionLabel>Tokens</SectionLabel>
-            </motion.div>
-            <motion.h2
-              variants={fadeInUp}
-              className="font-display text-3xl tracking-tight text-background lg:text-[3.25rem]"
-            >
-              Sensores <span className="gradient-text">activos</span>
-            </motion.h2>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.15, margin: '-60px' }}
-            variants={stagger}
-            className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3"
-          >
-            {tokens.length === 0 && (
-              <Card className="md:col-span-2 xl:col-span-3">
-                <CardContent className="text-center text-muted-foreground">
-                  No hay tokens creados todavía.
-                </CardContent>
-              </Card>
-            )}
-            {tokens.map((t) => (
-              <motion.div key={t.id} variants={fadeInUp}>
-                <Card className="h-full">
-                  <CardContent>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                          {t.token_type}
-                        </p>
-                        <h3 className="mt-1 text-lg font-semibold">{t.name}</h3>
-                      </div>
-                      <StatusBadge status={t.status} />
-                    </div>
-                    <p className="mt-3 text-sm text-muted-foreground">{t.location || 'Sin ubicación'}</p>
-                    <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
-                      <code className="rounded bg-muted px-2 py-1 text-xs text-foreground">
-                        {t.fingerprint}
-                      </code>
-                      <span className="text-xs text-muted-foreground">{t.context}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </Section>
-
-      {/* Events */}
-      <Section>
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.15, margin: '-60px' }}
-          variants={stagger}
-        >
-          <motion.div variants={fadeInUp}>
-            <SectionLabel pulse>Actividad</SectionLabel>
-          </motion.div>
-          <motion.h2
-            variants={fadeInUp}
-            className="font-display text-3xl tracking-tight text-foreground lg:text-[3.25rem]"
-          >
-            Eventos <span className="gradient-text">recientes</span>
-          </motion.h2>
-        </motion.div>
-
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.15, margin: '-60px' }}
-          variants={stagger}
-          className="mt-10"
-        >
-          <Card>
-            <CardContent className="overflow-x-auto p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-muted-foreground">
-                    <th className="px-6 py-4 font-mono text-xs uppercase tracking-wider">Hora</th>
-                    <th className="px-6 py-4 font-mono text-xs uppercase tracking-wider">Token</th>
-                    <th className="px-6 py-4 font-mono text-xs uppercase tracking-wider">Tipo</th>
-                    <th className="px-6 py-4 font-mono text-xs uppercase tracking-wider">IP</th>
-                    <th className="px-6 py-4 font-mono text-xs uppercase tracking-wider">Detalles</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {events.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
-                        Sin eventos registrados.
-                      </td>
-                    </tr>
-                  )}
-                  {events.map((e) => (
-                    <tr key={e.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                      <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                        {new Date(e.timestamp).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <code className="rounded bg-muted px-2 py-1 text-xs">{e.token_id.slice(0, 8)}</code>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge>{e.event_type}</Badge>
-                      </td>
-                      <td className="px-6 py-4 text-muted-foreground">{e.source_ip}</td>
-                      <td className="px-6 py-4 text-muted-foreground">
-                        {JSON.stringify(e.details).slice(0, 60)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </Section>
-
-      {/* Alerts */}
-      <Section inverted className="pb-28">
-        <div className="relative">
-          <div className="absolute -right-32 bottom-0 h-64 w-64 rounded-full bg-accent/5 blur-[120px]" />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.15, margin: '-60px' }}
-            variants={stagger}
-          >
-            <motion.div variants={fadeInUp}>
-              <SectionLabel variant="alert">Seguridad</SectionLabel>
-            </motion.div>
-            <motion.h2
-              variants={fadeInUp}
-              className="font-display text-3xl tracking-tight text-background lg:text-[3.25rem]"
-            >
-              Alertas <span className="gradient-text">críticas</span>
-            </motion.h2>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.15, margin: '-60px' }}
-            variants={stagger}
-            className="mt-10 grid gap-5 md:grid-cols-2"
-          >
-            {alerts.length === 0 && (
-              <Card className="md:col-span-2">
-                <CardContent className="text-center text-muted-foreground">
-                  No hay alertas abiertas. Todo tranquilo.
-                </CardContent>
-              </Card>
-            )}
-            {alerts.map((a) => (
-              <motion.div key={a.id} variants={fadeInUp}>
-                <div className="gradient-border h-full">
-                  <div className="gradient-border-inner h-full p-6">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="alert">{a.status}</Badge>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        score {a.score}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-foreground">{a.message}</p>
-                    <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-                      <code className="rounded bg-muted px-2 py-1">{a.token_id.slice(0, 8)}</code>
-                      <span>•</span>
-                      <span>{new Date(a.sent_at).toLocaleString()}</span>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {a.channels.map((ch) => (
-                        <span
-                          key={ch}
-                          className="rounded-full bg-accent/10 px-2 py-1 text-xs font-medium text-accent"
-                        >
-                          {ch}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </Section>
-
-      {/* Footer CTA */}
-      <Section className="py-16">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-          variants={stagger}
-          className="rounded-3xl gradient-bg p-10 text-center text-white shadow-accent-lg lg:p-16"
-        >
-          <motion.h2 variants={fadeInUp} className="font-display text-3xl lg:text-5xl">
-            ¿Listo para expandir la red de señuelos?
-          </motion.h2>
-          <motion.p variants={fadeInUp} className="mx-auto mt-4 max-w-xl text-white/80">
-            Crea nuevos tokens, vigila archivos canario y conecta alertas a tus canales favoritos.
-          </motion.p>
-          <motion.div variants={fadeInUp} className="mt-8">
-            <Button className="bg-white text-accent hover:bg-white/90 hover:shadow-xl">
-              Crear nuevo token
-            </Button>
-          </motion.div>
-        </motion.div>
-      </Section>
+      </main>
     </div>
   )
 }
