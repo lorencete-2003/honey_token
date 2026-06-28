@@ -1,0 +1,41 @@
+# Entorno virtual
+.venv/
+venv/
+
+# Base de datos local
+*.db
+
+# Archivos de configuración con posibles secretos
+.env
+.env.*
+!.env.example
+
+# Mapa del watcher (contiene rutas locales)
+honey_watcher_map.json
+
+# Archivos canarios generados (descomenta si no quieres versionarlos)
+# secrets/
+# canaries/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Node / Dashboard
+node_modules/
+dist/
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
